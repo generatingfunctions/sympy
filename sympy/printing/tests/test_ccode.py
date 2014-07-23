@@ -1,5 +1,5 @@
 from sympy.core import pi, oo, symbols, Function, Rational, Integer, GoldenRatio, EulerGamma, Catalan, Lambda, Dummy, Eq
-from sympy.functions import Piecewise, sin, cos, Abs, exp, ceiling, sqrt
+from sympy.functions import Piecewise, sin, cos, Abs, exp, ceiling, sqrt, gamma
 from sympy.utilities.pytest import raises
 from sympy.printing.ccode import CCodePrinter
 from sympy.utilities.lambdify import implemented_function
@@ -32,6 +32,10 @@ def test_ccode_Pow():
         "pow(3.5*g(x), -x + pow(y, x))/(pow(x, 2) + y)"
     assert ccode(x**-1.0) == '1.0/x'
     assert ccode(x**Rational(2, 3)) == 'pow(x, 2.0L/3.0L)'
+    _cond_cfunc = [(lambda base, exp: exp.is_integer, "dpowi"),
+                   (lambda base, exp: not exp.is_integer, "pow")]
+    assert ccode(x**3, user_functions={'Pow': _cond_cfunc}) == 'dpowi(x, 3)'
+    assert ccode(x**3.2, user_functions={'Pow': _cond_cfunc}) == 'pow(x, 3.2)'
 
 
 def test_ccode_constants_mathh():
@@ -78,7 +82,7 @@ def test_ccode_inline_function():
     g = implemented_function('g', Lambda(x, x*(1 + x)*(2 + x)))
     assert ccode(g(A[i]), assign_to=A[i]) == (
         "for (int i=0; i<n; i++){\n"
-        "   A[i] = A[i]*(1 + A[i])*(2 + A[i]);\n"
+        "   A[i] = (A[i] + 1)*(A[i] + 2)*A[i];\n"
         "}"
     )
 
@@ -86,6 +90,7 @@ def test_ccode_inline_function():
 def test_ccode_exceptions():
     assert ccode(ceiling(x)) == "ceil(x)"
     assert ccode(Abs(x)) == "fabs(x)"
+    assert ccode(gamma(x)) == "tgamma(x)"
 
 
 def test_ccode_user_functions():
@@ -125,15 +130,18 @@ else {
 
 
 def test_ccode_Piecewise_deep():
-    p = ccode(2*Piecewise((x, x < 1), (x**2, True)))
+    p = ccode(2*Piecewise((x, x < 1), (x + 1, x < 2), (x**2, True)))
     s = \
 """\
 2*((x < 1) ? (
    x
 )
+: ((x < 2) ? (
+   x + 1
+)
 : (
    pow(x, 2)
-) )\
+)) )\
 """
     assert p == s
 
@@ -168,7 +176,7 @@ def test_ccode_Indexed_without_looking_for_contraction():
     i = Idx('i', len_y-1)
     e=Eq(Dy[i], (y[i+1]-y[i])/(x[i+1]-x[i]))
     code0 = ccode(e.rhs, assign_to=e.lhs, contract=False)
-    assert code0 == 'Dy[i] = (y[%s] - y[i])*1.0/(x[%s] - x[i]);' % (i + 1, i + 1)
+    assert code0 == 'Dy[i] = (y[%s] - y[i])/(x[%s] - x[i]);' % (i + 1, i + 1)
 
 
 def test_ccode_loops_matrix_vector():
@@ -185,7 +193,7 @@ def test_ccode_loops_matrix_vector():
         '}\n'
         'for (int i=0; i<m; i++){\n'
         '   for (int j=0; j<n; j++){\n'
-        '      y[i] = y[i] + A[%s]*x[j];\n' % (i*n + j) +\
+        '      y[i] = x[j]*A[%s] + y[i];\n' % (i*n + j) +\
         '   }\n'
         '}'
     )
@@ -228,7 +236,7 @@ def test_ccode_loops_add():
         '}\n'
         'for (int i=0; i<m; i++){\n'
         '   for (int j=0; j<n; j++){\n'
-        '      y[i] = y[i] + A[%s]*x[j];\n' % (i*n + j) +\
+        '      y[i] = x[j]*A[%s] + y[i];\n' % (i*n + j) +\
         '   }\n'
         '}'
     )

@@ -62,7 +62,7 @@ def idiff(eq, y, x, n=1):
         raise ValueError("expecting x-dependent symbol(s) but got: %s" % y)
 
     f = dict([(s, Function(
-        s.name)(x)) for s in eq.atoms(Symbol) if s != x and s in dep])
+        s.name)(x)) for s in eq.free_symbols if s != x and s in dep])
     dydx = Function(y.name)(x).diff(x)
     eq = eq.subs(f)
     derivs = {}
@@ -221,7 +221,7 @@ def convex_hull(*args):
     [2] Andrew's Monotone Chain Algorithm
     (A.M. Andrew,
     "Another Efficient Algorithm for Convex Hulls in Two Dimensions", 1979)
-    http://softsurfer.com/Archive/algorithm_0109/algorithm_0109.htm
+    http://geomalgorithms.com/a10-_hull-1.html
 
     See Also
     ========

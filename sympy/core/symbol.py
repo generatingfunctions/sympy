@@ -12,7 +12,6 @@ from .function import FunctionClass
 from sympy.core.logic import fuzzy_bool
 from sympy.logic.boolalg import Boolean
 from sympy.utilities.iterables import cartes
-from sympy.utilities.exceptions import SymPyDeprecationWarning
 
 import string
 import re as _re
@@ -178,6 +177,11 @@ class Dummy(Symbol):
     def __getstate__(self):
         return {'_assumptions': self._assumptions, 'dummy_index': self.dummy_index}
 
+    @cacheit
+    def sort_key(self, order=None):
+        return self.class_key(), (
+            2, (str(self), self.dummy_index)), S.One.sort_key(), S.One
+
     def _hashable_content(self):
         return Symbol._hashable_content(self) + (self.dummy_index,)
 
@@ -331,8 +335,8 @@ def symbols(names, **args):
     To reduce typing, range syntax is supported to create indexed symbols.
     Ranges are indicated by a colon and the type of range is determined by
     the character to the right of the colon. If the character is a digit
-    then all continguous digits to the left are taken as the nonnegative
-    starting value (or 0 if there are no digit of the colon) and all
+    then all contiguous digits to the left are taken as the nonnegative
+    starting value (or 0 if there is no digit left of the colon) and all
     contiguous digits to the right are taken as 1 greater than the ending
     value::
 

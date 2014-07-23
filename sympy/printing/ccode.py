@@ -23,6 +23,7 @@ from sympy.printing.precedence import precedence
 known_functions = {
     "ceiling": [(lambda x: True, "ceil")],
     "Abs": [(lambda x: not x.is_integer, "fabs")],
+    "gamma": [(lambda x: True, "tgamma")],
 }
 
 
@@ -128,6 +129,8 @@ class CCodePrinter(CodePrinter):
         return open_lines, close_lines
 
     def _print_Pow(self, expr):
+        if "Pow" in self.known_functions:
+            return self._print_Function(expr)
         PREC = precedence(expr)
         if expr.exp == -1:
             return '1.0/%s' % (self.parenthesize(expr.base, PREC))
@@ -175,11 +178,12 @@ class CCodePrinter(CodePrinter):
         if expr.args[-1].cond == True:
             last_line = ": (\n%s\n)" % self._print(expr.args[-1].expr)
         else:
-            ecpairs.append("(%s) ? (\n%s\n" %
+            ecpairs.append("(%s) ? (\n%s\n)" %
                            (self._print(expr.args[-1].cond),
                             self._print(expr.args[-1].expr)))
         code = "%s" + last_line
-        return code % ": ".join(ecpairs) + " )"
+        return code % ": ".join(ecpairs) + " ".join(
+            [")" for ind in range(len(ecpairs))])
 
     def _print_Function(self, expr):
         if expr.func.__name__ in self.known_functions:
@@ -273,7 +277,7 @@ def ccode(expr, assign_to=None, **settings):
         >>> i = Idx('i', len_y-1)
         >>> e=Eq(Dy[i], (y[i+1]-y[i])/(t[i+1]-t[i]))
         >>> ccode(e.rhs, assign_to=e.lhs, contract=False)
-        'Dy[i] = (y[i + 1] - y[i])*1.0/(t[i + 1] - t[i]);'
+        'Dy[i] = (y[i + 1] - y[i])/(t[i + 1] - t[i]);'
 
     """
     return CCodePrinter(settings).doprint(expr, assign_to)

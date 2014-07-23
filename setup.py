@@ -80,6 +80,7 @@ modules = [
     'sympy.physics',
     'sympy.physics.hep',
     'sympy.physics.mechanics',
+    'sympy.physics.optics',
     'sympy.physics.quantum',
     'sympy.physics.vector',
     'sympy.plotting',
@@ -94,7 +95,6 @@ modules = [
     'sympy.sets',
     'sympy.simplify',
     'sympy.solvers',
-    'sympy.statistics',
     'sympy.stats',
     'sympy.strategies',
     'sympy.strategies.branch',
@@ -102,6 +102,7 @@ modules = [
     'sympy.unify',
     'sympy.utilities',
     'sympy.utilities.mathml',
+    'sympy.vector'
 ]
 
 class audit(Command):
@@ -155,12 +156,13 @@ class clean(Command):
 
     def run(self):
         import os
-        os.system("py.cleanup")
+        os.system("find . -name '*.pyc' | xargs rm -f")
         os.system("rm -f python-build-stamp-2.4")
         os.system("rm -f MANIFEST")
         os.system("rm -rf build")
         os.system("rm -rf dist")
         os.system("rm -rf doc/_build")
+        os.system("rm -f sample.tex")
 
 
 class test_sympy(Command):
@@ -245,8 +247,10 @@ tests = [
     'sympy.parsing.tests',
     'sympy.physics.hep.tests',
     'sympy.physics.mechanics.tests',
+    'sympy.physics.optics.tests',
     'sympy.physics.quantum.tests',
     'sympy.physics.tests',
+    'sympy.physics.vector.tests',
     'sympy.plotting.intervalmath.tests',
     'sympy.plotting.pygletplot.tests',
     'sympy.plotting.tests',
@@ -259,13 +263,13 @@ tests = [
     'sympy.sets.tests',
     'sympy.simplify.tests',
     'sympy.solvers.tests',
-    'sympy.statistics.tests',
     'sympy.stats.tests',
     'sympy.strategies.branch.tests',
     'sympy.strategies.tests',
     'sympy.tensor.tests',
     'sympy.unify.tests',
     'sympy.utilities.tests',
+    'sympy.vector'
     ]
 
 classifiers = [
@@ -297,7 +301,7 @@ setup_args = {
     "author_email": 'sympy@googlegroups.com',
     "license": 'BSD',
     "keywords": "Math CAS",
-    "url": 'http://code.google.com/p/sympy',
+    "url": 'http://sympy.org',
     "packages": ['sympy'] + modules + tests,
     "scripts": ['bin/isympy'],
     "ext_modules": [],

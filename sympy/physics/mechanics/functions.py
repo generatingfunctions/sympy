@@ -1,4 +1,17 @@
 from __future__ import print_function, division
+import warnings
+
+from sympy.utilities.exceptions import SymPyDeprecationWarning
+from sympy.utilities.misc import filldedent
+from sympy.physics.vector import Vector, ReferenceFrame, Point, dynamicsymbols
+from sympy.physics.vector.printing import (vprint, vsprint, vpprint, vlatex,
+                                           init_vprinting)
+from sympy.physics.mechanics.particle import Particle
+from sympy.physics.mechanics.rigidbody import RigidBody
+from sympy import sympify, Matrix, Symbol, Derivative, Dummy
+from sympy.core.basic import S
+from sympy.core.function import AppliedUndef
+from sympy.core.compatibility import reduce
 
 __all__ = ['inertia',
            'inertia_of_point_mass',
@@ -6,13 +19,49 @@ __all__ = ['inertia',
            'angular_momentum',
            'kinetic_energy',
            'potential_energy',
-           'Lagrangian']
+           'Lagrangian',
+           'mechanics_printing',
+           'mprint',
+           'msprint',
+           'mpprint',
+           'mlatex']
 
-from sympy.physics.vector import Vector, ReferenceFrame, Point
-from sympy.physics.mechanics.particle import Particle
-from sympy.physics.mechanics.rigidbody import RigidBody
-from sympy import sympify
-from sympy.core.basic import S
+warnings.simplefilter("always", SymPyDeprecationWarning)
+
+# These are functions that we've moved and renamed during extracting the
+# basic vector calculus code from the mechanics packages.
+
+mprint = vprint
+msprint = vsprint
+mpprint = vpprint
+mlatex = vlatex
+
+
+def mechanics_printing(**kwargs):
+
+    # mechanics_printing has slightly different functionality in 0.7.5 but
+    # shouldn't fundamentally need a deprecation warning so we do this
+    # little wrapper that gives the warning that things have changed.
+
+    # TODO : Remove this warning in the release after SymPy 0.7.5
+
+    # The message is only printed if this function is called with no args,
+    # as was the previous only way to call it.
+
+    def dict_is_empty(D):
+        for k in D:
+            return False
+        return True
+
+    if dict_is_empty(kwargs):
+        msg = ('See the doc string for slight changes to this function: '
+               'keyword args may be needed for the desired effect. '
+               'Otherwise use sympy.physics.vector.init_vprinting directly.')
+        SymPyDeprecationWarning(filldedent(msg)).warn()
+
+    init_vprinting(**kwargs)
+
+mechanics_printing.__doc__ = init_vprinting.__doc__
 
 
 def inertia(frame, ixx, iyy, izz, ixy=0, iyz=0, izx=0):
@@ -64,7 +113,7 @@ def inertia(frame, ixx, iyy, izz, ixy=0, iyz=0, izx=0):
 
 
 def inertia_of_point_mass(mass, pos_vec, frame):
-    """Inertia dyadic of a point mass realtive to point O.
+    """Inertia dyadic of a point mass relative to point O.
 
     Parameters
     ==========
@@ -102,7 +151,7 @@ def linear_momentum(frame, *body):
     the linear momentum of its constituents. Consider a system, S, comprised of
     a rigid body, A, and a particle, P. The linear momentum of the system, L,
     is equal to the vector sum of the linear momentum of the particle, L1, and
-    the linear momentum of the rigid body, L2, i.e-
+    the linear momentum of the rigid body, L2, i.e.
 
     L = L1 + L2
 
@@ -112,7 +161,7 @@ def linear_momentum(frame, *body):
     frame : ReferenceFrame
         The frame in which linear momentum is desired.
     body1, body2, body3... : Particle and/or RigidBody
-        The body (or bodies) whose kinetic energy is required.
+        The body (or bodies) whose linear momentum is required.
 
     Examples
     ========
@@ -151,8 +200,8 @@ def angular_momentum(point, frame, *body):
     RigidBody's. The angular momentum of such a system is equal to the vector
     sum of the angular momentum of its constituents. Consider a system, S,
     comprised of a rigid body, A, and a particle, P. The angular momentum of
-    the system, H, is equal to the vector sum of the linear momentum of the
-    particle, H1, and the linear momentum of the rigid body, H2, i.e-
+    the system, H, is equal to the vector sum of the angular momentum of the
+    particle, H1, and the angular momentum of the rigid body, H2, i.e.
 
     H = H1 + H2
 
@@ -164,7 +213,7 @@ def angular_momentum(point, frame, *body):
     frame : ReferenceFrame
         The frame in which angular momentum is desired.
     body1, body2, body3... : Particle and/or RigidBody
-        The body (or bodies) whose kinetic energy is required.
+        The body (or bodies) whose angular momentum is required.
 
     Examples
     ========
@@ -331,7 +380,7 @@ def Lagrangian(frame, *body):
         defined to determine the kinetic energy.
 
     body1, body2, body3... : Particle and/or RigidBody
-        The body (or bodies) whose kinetic energy is required.
+        The body (or bodies) whose Lagrangian is required.
 
     Examples
     ========
@@ -365,3 +414,47 @@ def Lagrangian(frame, *body):
         if not isinstance(e, (RigidBody, Particle)):
             raise TypeError('*body must have only Particle or RigidBody')
     return kinetic_energy(frame, *body) - potential_energy(*body)
+
+
+def _mat_inv_mul(A, B):
+    """
+    Computes A^-1 * B symbolically w/ substitution, where B is not
+    necessarily a vector, but can be a matrix.
+
+    """
+
+    r1, c1 = A.shape
+    r2, c2 = B.shape
+    temp1 = Matrix(r1, c1, lambda i, j: Symbol('x' + str(j) + str(r1 * i)))
+    temp2 = Matrix(r2, c2, lambda i, j: Symbol('y' + str(j) + str(r2 * i)))
+    for i in range(len(temp1)):
+        if A[i] == 0:
+            temp1[i] = 0
+    for i in range(len(temp2)):
+        if B[i] == 0:
+            temp2[i] = 0
+    temp3 = []
+    for i in range(c2):
+        temp3.append(temp1.LDLsolve(temp2[:, i]))
+    temp3 = Matrix([i.T for i in temp3]).T
+    return temp3.subs(dict(list(zip(temp1, A)))).subs(dict(list(zip(temp2, B))))
+
+def _subs_keep_derivs(expr, sub_dict):
+    """Performs subs exactly as subs normally would be,
+    but doesn't sub in expressions inside Derivatives."""
+
+    ds = expr.atoms(Derivative)
+    gs = [Dummy() for d in ds]
+    items = sub_dict.items()
+    deriv_dict = dict((i, j) for (i, j) in items if i.is_Derivative)
+    sub_dict = dict((i, j) for (i, j) in items if not i.is_Derivative)
+    dict_to = dict(zip(ds, gs))
+    dict_from = dict(zip(gs, ds))
+    return expr.subs(deriv_dict).subs(dict_to).subs(sub_dict).subs(dict_from)
+
+def _find_dynamicsymbols(inlist, insyms=[]):
+    """Finds all non-supplied dynamicsymbols in the expressions."""
+    t = dynamicsymbols._t
+    return reduce(set.union, [set([i]) for j in inlist
+            for i in j.atoms(AppliedUndef, Derivative)
+            if i.free_symbols == set([t])], set()) - set(insyms)

@@ -1,6 +1,9 @@
 from sympy import (S, sympify, trigsimp, expand, sqrt, Add, zeros,
                    ImmutableMatrix as Matrix)
 from sympy.core.compatibility import u
+from sympy.utilities.misc import filldedent
+
+__all__ = ['Vector']
 
 
 class Vector(object):
@@ -271,16 +274,19 @@ class Vector(object):
                         elif ar[i][0][j] != 0:
                             # If the basis vector coeff is not 1 or -1,
                             # we might wrap it in parentheses, for readability.
-                            arg_str = (VectorPrettyPrinter().doprint(
-                                ar[i][0][j]))
                             if isinstance(ar[i][0][j], Add):
-                                arg_str = u("(%s)") % arg_str
+                                arg_str = VectorPrettyPrinter()._print(
+                                    ar[i][0][j]).parens()[0]
+                            else:
+                                arg_str = (VectorPrettyPrinter().doprint(
+                                    ar[i][0][j]))
+
                             if arg_str[0] == u("-"):
                                 arg_str = arg_str[1:]
                                 str_start = u(" - ")
                             else:
                                 str_start = u(" + ")
-                            ol.append(str_start + arg_str + '*' +
+                            ol.append(str_start + arg_str + ' ' +
                                       ar[i][1].pretty_vecs[j])
                 outstr = u("").join(ol)
                 if outstr.startswith(u(" + ")):
@@ -437,6 +443,31 @@ class Vector(object):
     __radd__ = __add__
     __rand__ = __and__
     __rmul__ = __mul__
+
+    def separate(self):
+        """
+        The constituents of this vector in different reference frames,
+        as per its definition.
+
+        Returns a dict mapping each ReferenceFrame to the corresponding
+        constituent Vector.
+
+        Examples
+        ========
+
+        >>> from sympy.physics.vector import ReferenceFrame
+        >>> R1 = ReferenceFrame('R1')
+        >>> R2 = ReferenceFrame('R2')
+        >>> v = R1.x + R2.x
+        >>> v.separate() == {R1: R1.x, R2: R2.x}
+        True
+
+        """
+
+        components = {}
+        for x in self.args:
+            components[x[1]] = Vector([x])
+        return components
 
     def dot(self, other):
         return self & other
@@ -623,6 +654,14 @@ class Vector(object):
     def normalize(self):
         """Returns a Vector of magnitude 1, codirectional with self."""
         return Vector(self.args + []) / self.magnitude()
+
+
+class VectorTypeError(TypeError):
+
+    def __init__(self, other, want):
+        msg = filldedent("Expected an instance of %s, but received object "
+                         "'%s' of %s." % (type(want), other, type(other)))
+        super(VectorTypeError, self).__init__(msg)
 
 
 def _check_vector(other):

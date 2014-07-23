@@ -430,7 +430,6 @@ velocity definition. ::
 
   >>> from sympy import Symbol, sin, cos
   >>> from sympy.physics.vector import *
-  >>> time_derivative_printing()
   >>> N = ReferenceFrame('N')
   >>> q1 = dynamicsymbols('q1')
   >>> A = N.orientnew('A', 'Axis', [q1, N.x])
@@ -569,6 +568,3 @@ This is the particle moving on a ring, again. ::
   l*u1*C.y
   >>> P.v1pt_theory(Q, N, C)
   - R*u2*sin(q2)*C.x + (R*u2*cos(q2) + l*u1)*C.y + R*u1*sin(q2)*C.z
-
-
-
